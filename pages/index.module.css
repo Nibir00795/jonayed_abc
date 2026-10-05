@@ -1,163 +1,106 @@
-@font-face {
-  font-family: "ColfaxAI";
-  src:
-    url(https://cdn.openai.com/API/fonts/ColfaxAIRegular.woff2) format("woff2"),
-    url(https://cdn.openai.com/API/fonts/ColfaxAIRegular.woff) format("woff");
-  font-weight: normal;
-  font-style: normal;
+/* Look and feel. The original used OpenAI's green and a webfont pulled from
+   OpenAI's CDN. This is an ink and slate base on warm paper with a single amber
+   accent, used only where the app makes a judgment. System fonts, no downloads. */
+
+.page {
+  --ink: #1d2b33;
+  --slate: #2f6f8f;
+  --amber: #d7792b;
+  --paper: #f7f6f3;
+  --card: #ffffff;
+  --rule: #dcdcd6;
+  --muted: #65717a;
+  --alert: #9c2b2b;
+  --alert-bg: #fdf1f0;
 }
 
-@font-face {
-  font-family: "ColfaxAI";
-  src:
-    url(https://cdn.openai.com/API/fonts/ColfaxAIBold.woff2) format("woff2"),
-    url(https://cdn.openai.com/API/fonts/ColfaxAIBold.woff) format("woff");
-  font-weight: bold;
-  font-style: normal;
-}
-
-.body,
-.input {
+.page {
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 16px;
-  line-height: 24px;
-  color: #353740;
-  font-family: "ColfaxAI", Helvetica, sans-serif;
-}
-
-.body {
+  line-height: 1.55;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 60px;
+  padding: 40px 20px 80px;
 }
 
-.icon {
-  width: 34px;
+.header { display: flex; align-items: center; gap: 16px; max-width: 920px; width: 100%; }
+.icon { width: 52px; height: 52px; flex: none; }
+.title { font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
+.subtitle { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
+
+.byline {
+  max-width: 920px; width: 100%; margin: 14px 0 18px; padding-top: 12px;
+  border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted);
+  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.byline strong { color: var(--ink); font-weight: 600; }
+.model {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+  color: var(--slate); background: #eaf1f5; border-radius: 4px; padding: 2px 8px;
 }
 
-.h3 {
-  font-size: 32px;
-  line-height: 40px;
-  font-weight: bold;
-  color: #202123;
-  margin: 16px 0 40px;
+.panel {
+  max-width: 920px; width: 100%; background: var(--card);
+  border: 1px solid var(--rule); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px;
 }
+.h2 { font-size: 17px; font-weight: 700; margin: 0 0 10px; }
+.meta { margin: 8px 0 0; color: var(--muted); font-size: 13.5px; }
 
-.chatContainer {
-  max-width: 600px;
-  width: 100%;
-  margin: 0 auto;
-  padding-top: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-bottom: 160px;
-  margin-bottom: 20px;
-  overflow: auto;
+.uploadRow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.upload {
+  display: inline-flex; align-items: center; padding: 10px 16px; border-radius: 6px;
+  background: var(--slate); color: #fff; font-weight: 600; cursor: pointer;
 }
-
-.userMessage,
-.assistantMessage {
-  padding: 12px 16px;
-  border: 1px solid #10a37f;
-  border-radius: 4px;
-  margin-bottom: 8px;
-  max-width: 80%;
-  word-wrap: break-word;
+.upload input { display: none; }
+.ghost {
+  padding: 10px 14px; border-radius: 6px; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--rule); font: inherit; font-weight: 600; cursor: pointer;
 }
-
-.userMessage {
-  align-self: flex-end;
-  background-color: #daf8e3;
+.ghost:hover { border-color: var(--slate); }
+.primary {
+  padding: 10px 18px; border: none; border-radius: 6px; background: var(--amber);
+  color: #fff; font: inherit; font-weight: 600; cursor: pointer;
 }
+.primary:disabled { background: #d9c3ad; cursor: default; }
 
-.assistantMessage {
-  align-self: flex-start;
-  background-color: #f1f1f1;
+.tableWrap { overflow: auto; border: 1px solid var(--rule); border-radius: 6px; }
+.table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.table th, .table td { padding: 7px 10px; border-bottom: 1px solid var(--rule); text-align: left; white-space: nowrap; }
+.table th { background: var(--paper); font-weight: 600; position: sticky; top: 0; }
+.table td.num { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.type { margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+
+.controls { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 12px; }
+.control { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); }
+.control select {
+  font: inherit; font-size: 14px; color: var(--ink); padding: 7px 10px;
+  border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); min-width: 170px;
 }
-
-.messageInputContainer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 20px;
-  background: #fff;
-  border-top: 1px solid #eaeaea;
-  display: flex;
-  justify-content: center;
-  height: auto;
-  padding-bottom: 20px;
+.checks { display: flex; gap: 6px; flex-wrap: wrap; }
+.check, .checkOn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+  border: 1px solid var(--rule); border-radius: 6px; font-size: 13.5px; color: var(--ink);
+  background: var(--paper); cursor: pointer; text-transform: none;
 }
+.checkOn { border-color: var(--slate); background: #eaf1f5; }
+.check input, .checkOn input { margin: 0; }
 
-.heading1 {
-  text-align: center; /* Centers text horizontally */
-  width: 100%; /* Ensures the heading takes full width of its container */
-  margin: 0 auto; /* Applies automatic horizontal margins */
+.chart { width: 100%; height: 440px; }
+
+.aiHead { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.aiHead .h2 { margin: 0; }
+.reply {
+  margin-top: 12px; padding: 13px 16px; background: var(--paper);
+  border: 1px solid var(--rule); border-left: 3px solid var(--amber); border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px;
+  line-height: 1.6; white-space: pre-wrap;
 }
-
-.form {
-  max-width: 600px;
-  width: 100%;
-  margin: 0 auto;
-  flex-direction: column;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.textarea {
-  padding: 12px 16px;
-  border: 1px solid #10a37f;
-  border-radius: 4px;
-  margin-bottom: 24px;
-  width: 100%;
-  min-height: 50px;
-  resize: both;
-  overflow: auto;
-  margin-right: 4px;
-  flex: 3;
-}
-
-.buttonGroup {
-  display: flex;
-}
-
-.inputSubmit,
-.inputButton {
-  padding: 12px 16px;
-  color: #fff;
-  background-color: #10a37f;
-  border: none;
-  border-radius: 4px;
-  text-align: center;
-  cursor: pointer;
-  flex: 1;
-  margin: 0 2px;
-}
-
-.inputSubmit {
-  flex-grow: 4;
-}
-
-.inputButton {
-  flex-grow: 1;
-  background-color: #f44336;
-}
-
-.inputText {
-  padding: 12px 16px;
-  border: 1px solid #10a37f;
-  border-radius: 4px;
-  margin-bottom: 24px;
-}
-
-.placeholder {
-  color: #8e8ea0;
-  opacity: 1;
-}
-
-.result {
-  font-weight: bold;
-  margin-top: 40px;
+.error {
+  margin-top: 10px; padding: 11px 14px; border-left: 3px solid var(--alert);
+  background: var(--alert-bg); color: var(--alert); border-radius: 4px; font-size: 14px;
+  white-space: pre-wrap;
 }

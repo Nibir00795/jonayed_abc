@@ -2,71 +2,84 @@ import OpenAI from "openai";
 
 const openai = new OpenAI();
 
-let chatHistory = [{ role: "system", content: "You are a helpful assistant." }];
+// One place for the model. Override from the environment without touching code:
+//   OPENAI_MODEL=gpt-5.2   (in .env locally, or in Vercel's Environment Variables)
+// GET /api/generate?endpoint=models lists what this key can actually use.
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+// Chart Doctor: the AI feature of this data visualization app.
+const SYSTEM_PROMPT = `You are Chart Doctor, a data visualization critic built into a
+small charting app. The user uploads a dataset and draws a chart from it; you are
+shown a summary of the columns, a few sample rows, and the encoding they chose.
+
+Reply in exactly three short sections:
+
+Diagnosis - what works and what misleads or is unclear in the chart as described.
+Why - the perceptual or statistical reason, in plain language.
+Fix - the single most useful change: which column on which axis, which chart
+type, and why. If their choice is already sound, say so and suggest one refinement.
+
+Rules: three or four sentences per section at most. Never invent values the
+summary did not give you. Treat the dataset as the user's own; do not speculate
+about where it came from.`;
+
+export const config = {
+  api: { bodyParser: { sizeLimit: "1mb" } },
+};
 
 export default async function handler(req, res) {
   const { method } = req;
 
-  switch (method) {
-    case "POST":
-      if (req.query.endpoint === "chat") {
-        // Handle POST to /api/generate?endpoint=chat
-        const content = req.body.message;
-        chatHistory.push({ role: "user", content: content });
-        res.status(200).json({ success: true });
-      } else if (req.query.endpoint === "reset") {
-        // Handle POST to /api/generate?endpoint=reset
-        chatHistory = [
-          { role: "system", content: "You are a helpful assistant." },
-        ];
-        res.status(200).json({ success: true });
-      } else {
-        res.status(404).json({ error: "Not Found" });
+  if (method === "GET") {
+    if (req.query.endpoint === "config") {
+      return res.status(200).json({ model: MODEL });
+    }
+    if (req.query.endpoint === "models") {
+      try {
+        const list = await openai.models.list();
+        return res.status(200).json({ current: MODEL, available: list.data.map((m) => m.id).sort() });
+      } catch (error) {
+        return res.status(500).json({ error: error?.message || String(error) });
       }
-      break;
-    case "GET":
-      if (req.query.endpoint === "history") {
-        res.status(200).json(chatHistory);
-      } else if (req.query.endpoint === "stream") {
-        // Set headers for Server-Sent Events
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-
-        try {
-          const stream = await openai.beta.chat.completions.stream({
-            model: "gpt-3.5-turbo",
-            messages: chatHistory,
-            stream: true,
-          });
-
-          for await (const chunk of stream) {
-            const message = chunk.choices[0]?.delta?.content || "";
-            res.write(`data: ${JSON.stringify(message)}\n\n`);
-          }
-
-          // After the stream ends, get the final chat completion
-          const chatCompletion = await stream.finalChatCompletion();
-        } catch (error) {
-          res.write(
-            "event: error\ndata: " +
-              JSON.stringify({ message: "Stream encountered an error" }) +
-              "\n\n"
-          );
-        }
-
-        // When the client closes the connection, we stop the stream
-        return new Promise((resolve) => {
-          req.on("close", () => {
-            resolve();
-          });
-        });
-      } else {
-        res.status(404).json({ error: "Not Found" });
-      }
-      break;
-    default:
-      res.setHeader("Allow", ["GET", "POST"]);
-      res.status(405).end(`Method ${method} Not Allowed`);
+    }
+    return res.status(404).json({ error: "Not Found" });
   }
+
+  if (method === "POST") {
+    // Stateless by design. The original kept the conversation in a module-level
+    // variable across two requests, which breaks on serverless hosts like Vercel
+    // where consecutive requests can land on different instances. The browser now
+    // sends the whole conversation each time and the reply streams straight back.
+    const messages = Array.isArray(req.body?.messages) ? req.body.messages : null;
+    if (!messages || !messages.length) {
+      return res.status(400).json({ error: "Send { messages: [...] }." });
+    }
+
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("X-Accel-Buffering", "no");
+
+    try {
+      const stream = await openai.chat.completions.create({
+        model: MODEL,
+        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+        stream: true,
+      });
+      for await (const chunk of stream) {
+        const delta = chunk.choices?.[0]?.delta?.content || "";
+        if (delta) res.write(delta);
+      }
+      return res.end();
+    } catch (error) {
+      // Surface the real reason (bad model name, unpaid key, network) instead of
+      // a generic message. Headers may already be sent, so write it into the body.
+      const detail = error?.error?.message || error?.message || String(error);
+      if (!res.headersSent) res.status(500);
+      res.write(`\n[Chart Doctor error] ${detail}`);
+      return res.end();
+    }
+  }
+
+  res.setHeader("Allow", ["GET", "POST"]);
+  return res.status(405).end(`Method ${method} Not Allowed`);
 }

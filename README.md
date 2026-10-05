@@ -1,44 +1,45 @@
-# OpenAI API Quickstart - Node.js example app
+# Chart Doctor
 
-This is an example pet name generator app used in the OpenAI API [quickstart tutorial](https://platform.openai.com/docs/quickstart). It uses the [Next.js](https://nextjs.org/) framework with [React](https://reactjs.org/). Check out the tutorial or follow the instructions below to get set up.
+Upload a CSV, see it as a table and a chart in the browser, then ask an AI critic
+what is misleading about the chart and how to fix it.
 
-![Text box that says name my pet with an icon of a dog](https://user-images.githubusercontent.com/10623307/213887080-b2bc4645-7fdb-4dbd-ae42-efce00d0dc29.png)
+Built by Md Jonayed Hossain Chowdhury for CPS 5745, from the OpenAI
+`openai-quickstart-node` chat example (branch `dev/logan/migrate-to-chat-completions`).
 
+## What it does
 
-## Setup
+- **Upload custom data.** Any CSV with a header row. It is parsed in the browser
+  and never sent anywhere. A built-in sample dataset is one click away.
+- **Show it on screen.** A data preview table with inferred column types, and a
+  Plotly chart with selectable X column, one or more numeric Y columns, and bar,
+  line or scatter form. Bar charts always start the Y axis at zero.
+- **Chart Doctor.** Sends the column names, types, the first five rows and the
+  chosen encoding to an OpenAI model, which replies with a Diagnosis, Why, and
+  Fix. The whole file is never sent.
 
-1. If you don’t have Node.js installed, [install it from here](https://nodejs.org/en/) (Node.js version >= 14.6.0 required)
+## Run locally
 
-2. Clone this repository
+    npm install
+    cp .env.example .env        # then put your key in .env as OPENAI_API_KEY="sk-..."
+    npm run dev                 # http://localhost:3000
 
-3. Navigate into the project directory
+Optional, in `.env`: `OPENAI_MODEL=gpt-5.2` (or any model your key can use).
+To see which models the key accepts: `http://localhost:3000/api/generate?endpoint=models`
 
-   ```bash
-   $ cd openai-quickstart-node
-   ```
+## Deploy to Vercel
 
-4. Install the requirements
+1. Push this repository to GitHub.
+2. At vercel.com, **Add New > Project**, import the repository. Vercel detects Next.js.
+3. Under **Environment Variables** add `OPENAI_API_KEY` with your key, and optionally
+   `OPENAI_MODEL`. Never commit `.env`; it is git-ignored.
+4. Deploy. The live URL is the submission.
 
-   ```bash
-   $ npm install
-   ```
+The server is stateless on purpose: the browser sends the whole request each
+time, so it works on serverless hosts where consecutive requests may not share
+memory.
 
-5. Make a copy of the example environment variables file
+## Files
 
-   On Linux systems: 
-   ```bash
-   $ cp .env.example .env
-   ```
-   On Windows:
-   ```powershell
-   $ copy .env.example .env
-   ```
-6. Add your [API key](https://platform.openai.com/account/api-keys) to the newly created `.env` file
-
-7. Run the app
-
-   ```bash
-   $ npm run dev
-   ```
-
-You should now be able to access the app at [http://localhost:3000](http://localhost:3000)! For the full context behind this example app, check out the [tutorial](https://platform.openai.com/docs/quickstart).
+- `pages/index.js` - the page: upload, table, chart controls, Plotly chart, Chart Doctor panel.
+- `pages/api/generate.js` - the API route: streams the model's reply; `?endpoint=models` and `?endpoint=config` for diagnostics.
+- `pages/index.module.css` - styling.
