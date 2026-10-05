@@ -21,7 +21,9 @@ type, and why. If their choice is already sound, say so and suggest one refineme
 
 Rules: three or four sentences per section at most. Never invent values the
 summary did not give you. Treat the dataset as the user's own; do not speculate
-about where it came from.`;
+about where it came from. Never recommend a second y-axis; when measures have
+different scales, suggest separate charts, small multiples, or indexing to a
+common base instead.`;
 
 export const config = {
   api: { bodyParser: { sizeLimit: "1mb" } },

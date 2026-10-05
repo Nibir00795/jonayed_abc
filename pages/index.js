@@ -88,6 +88,16 @@ export default function Home() {
   const [model, setModel] = useState("");
   const [aiReply, setAiReply] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+  const [viewportTick, setViewportTick] = useState(0);
+
+  // Redraw (not just resize) the chart when the window changes size, so the
+  // legend and margins are laid out again for the new width.
+  useEffect(() => {
+    let timer;
+    const onResize = () => { clearTimeout(timer); timer = setTimeout(() => setViewportTick((t) => t + 1), 150); };
+    window.addEventListener("resize", onResize);
+    return () => { clearTimeout(timer); window.removeEventListener("resize", onResize); };
+  }, []);
   const chartRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -99,6 +109,7 @@ export default function Home() {
   const numericCols = useMemo(() => columns.filter((c) => types[c] === "number"), [columns, types]);
   const textCols = useMemo(() => columns.filter((c) => types[c] !== "number"), [columns, types]);
   const hasData = rows.length > 0;
+  const chartTitle = yCols.length ? `${yCols.join(", ")} by ${xCol}${colorBy ? `, split by ${colorBy}` : ""}` : "";
 
   // ---------- loading ----------
   const loadText = useCallback((text, name) => {
@@ -159,18 +170,17 @@ export default function Home() {
       }
     }
     const layout = {
-      title: { text: `${yCols.join(", ")} by ${xCol}${colorBy ? `, split by ${colorBy}` : ""}`, x: 0, xanchor: "left", font: { size: 16, color: "#1d2b33" } },
       paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff",
       font: { family: "ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif", color: "#65717a", size: 13 },
       xaxis: { title: { text: xCol }, showgrid: false, linecolor: "#dcdcd6", type: xIsNumber ? "linear" : "category" },
       yaxis: { title: { text: yCols.length === 1 ? yCols[0] : "value" }, gridcolor: "#eeeeea", zerolinecolor: "#dcdcd6", rangemode: chartType === "bar" ? "tozero" : "normal" },
       barmode: "group",
-      legend: { orientation: "h", y: 1.14, x: 0, xanchor: "left" },
-      margin: { l: 64, r: 16, t: 78, b: 60 },
+      legend: { orientation: "h", y: 1.02, yanchor: "bottom", x: 0, xanchor: "left" },
+      margin: { l: 64, r: 16, t: 24, b: 60 },
       hovermode: "closest",
     };
-    window.Plotly.newPlot(chartRef.current, traces, layout, { displayModeBar: false, responsive: true });
-  }, [plotlyReady, rows, xCol, yCols, colorBy, chartType, types, hasData]);
+    window.Plotly.newPlot(chartRef.current, traces, layout, { displayModeBar: false, responsive: false });
+  }, [plotlyReady, rows, xCol, yCols, colorBy, chartType, types, hasData, viewportTick]);
 
   const downloadPng = () => {
     if (chartRef.current && window.Plotly) {
@@ -243,7 +253,7 @@ export default function Home() {
 
           {!hasData ? (
             <div
-              className={dragging ? styles.dropActive : styles.drop}
+              className={`${styles.drop} ${dragging ? styles.dropActive : ""}`}
               onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
               onDrop={onDrop}
@@ -314,7 +324,7 @@ export default function Home() {
                   <span className={styles.label}>Y axis <em>numeric columns, pick one or more</em></span>
                   <div className={styles.chips}>
                     {numericCols.length ? numericCols.map((c) => (
-                      <label key={c} className={yCols.includes(c) ? styles.chipOn : styles.chip}>
+                      <label key={c} className={`${styles.chip} ${yCols.includes(c) ? styles.chipOn : ""}`}>
                         <input type="checkbox" checked={yCols.includes(c)} onChange={() => toggleY(c)} />{c}
                       </label>
                     )) : <span className={styles.meta}>No numeric column found.</span>}
@@ -334,7 +344,7 @@ export default function Home() {
                   <div className={styles.seg} role="radiogroup" aria-label="Chart type">
                     {[["bar", "Bar"], ["line", "Line"], ["scatter", "Scatter"]].map(([t, l]) => (
                       <button key={t} type="button" role="radio" aria-checked={chartType === t}
-                        className={chartType === t ? styles.segOn : styles.segBtn} onClick={() => setChartType(t)}>{l}</button>
+                        className={`${styles.segBtn} ${chartType === t ? styles.segOn : ""}`} onClick={() => setChartType(t)}>{l}</button>
                     ))}
                   </div>
                 </div>
@@ -343,6 +353,7 @@ export default function Home() {
               </aside>
 
               <div className={styles.chartArea}>
+                {yCols.length ? <h3 className={styles.chartTitle}>{chartTitle}</h3> : null}
                 {yCols.length ? <div ref={chartRef} className={styles.chart} /> : (
                   <div className={styles.chartEmpty}>Pick at least one numeric column for the Y axis.</div>
                 )}
@@ -368,7 +379,7 @@ export default function Home() {
             {!isError && aiReply && sections ? (
               <div className={styles.cards}>
                 {sections.map((s) => (
-                  <div key={s.label} className={s.label === "Fix" ? styles.cardFix : styles.card}>
+                  <div key={s.label} className={`${styles.card} ${s.label === "Fix" ? styles.cardFix : ""}`}>
                     <div className={styles.cardLabel}>{s.label}</div>
                     <div className={styles.cardBody}>{s.body}</div>
                   </div>
