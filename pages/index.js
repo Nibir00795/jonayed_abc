@@ -111,16 +111,20 @@ function readBackChart(gd, ctx) {
 
 // Chart Doctor is told to answer in three sections; split them so they read as cards.
 function splitReply(text) {
-  const re = /^\s*(Diagnosis|Why|Fix)\s*[-:–—]?\s*/im;
+  // Tolerate Markdown the model sometimes adds: "**Diagnosis:**", "## Why", "*Fix* -".
+  // A label only counts when it is followed by a dash or colon, is a Markdown
+  // heading, or stands alone, so a sentence like "Fix the axis" is not a header.
+  const head = /^\s*(#{1,6}\s*)?[*_]{0,2}\s*(Diagnosis|Why|Fix)\s*[*_]{0,2}\s*([-:\u2013\u2014])?\s*[*_]{0,2}\s*(.*)$/i;
   const parts = [];
-  const lines = text.split("\n");
   let cur = null;
-  for (const line of lines) {
-    const m = line.match(/^\s*(Diagnosis|Why|Fix)\s*[-:–—]?\s*(.*)$/i);
-    if (m) { cur = { label: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(), body: m[2] }; parts.push(cur); }
+  for (const line of text.split("\n")) {
+    const m = line.match(head);
+    const isHead = m && (m[1] || m[3] || !m[4].trim());
+    if (isHead) { cur = { label: m[2][0].toUpperCase() + m[2].slice(1).toLowerCase(), body: m[4] }; parts.push(cur); }
     else if (cur) cur.body += (cur.body ? "\n" : "") + line;
   }
-  return parts.length >= 2 && re.test(text) ? parts.map((p) => ({ ...p, body: p.body.trim() })) : null;
+  const clean = (b) => b.replace(/\*\*(.+?)\*\*/g, "$1").replace(/(^|\s)[*_]([^*_\n]+)[*_](?=\s|[.,;:]|$)/g, "$1$2").trim();
+  return parts.length >= 2 ? parts.map((p) => ({ ...p, body: clean(p.body) })) : null;
 }
 
 export default function Home() {

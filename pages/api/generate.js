@@ -17,11 +17,15 @@ legend is shown, colours, and per-series min, max, first and last values.
 Treat the rendered spec as ground truth. Never say an element is missing (a
 legend, an axis title, a label) if the spec shows it. Base the critique on what
 the spec reveals: an axis that does not start at zero on a bar chart, series on
-very different scales sharing one axis, repeated x values that stack or zigzag,
+different measures with very different magnitudes sharing one axis (only
+when the series are different columns, such as units and returns; groups of the
+same column, such as one region against another, belong on one shared axis and
+that is correct), repeated x values that stack or zigzag,
 missing values, category order, too many series, or a better column left unused.
 Quote the actual numbers from the spec when they support your point.
 
-Reply in exactly three short sections:
+Reply in plain text, no Markdown (no asterisks, no #). Use exactly three short
+sections, each starting on its own line with the label and a dash:
 
 Diagnosis - what works and what misleads or is unclear in the chart as described.
 Why - the perceptual or statistical reason, in plain language.
