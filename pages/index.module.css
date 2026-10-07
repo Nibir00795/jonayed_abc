@@ -650,6 +650,32 @@
   min-height: 60px;
 }
 
+.seen {
+  margin-top: 14px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: #fbfbf9;
+}
+
+.seen summary {
+  cursor: pointer;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate-dark);
+}
+
+.seenBody {
+  margin: 0;
+  padding: 0 16px 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- footer ---------- */
 
 .footer {

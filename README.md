@@ -17,6 +17,23 @@ Built by Md Jonayed Hossain Chowdhury for CPS 5745, from the OpenAI
   chosen encoding to an OpenAI model, which replies with a Diagnosis, Why, and
   Fix. The whole file is never sent.
 
+## How Chart Doctor sees the chart
+
+A language model cannot see a picture, and a description of the settings the
+user picked is not the same as the chart on screen. So before each request the
+app reads the rendered Plotly figure back (`_fullLayout` and `_fullData`): the
+final axis ranges, whether the y axis starts at zero, whether a legend is
+actually shown and what it lists, each series' colour, and each series' point
+count, min, max, first and last value. It also flags repeated x positions
+(several rows drawn at the same x, which makes a line zigzag) and series whose
+scales differ by 5x or more on one shared axis. That spec is sent with the
+prompt and shown to the user under "What Chart Doctor saw", so every critique
+can be checked against the numbers it was given.
+
+Example: with the sample data, no series split and a line chart, the spec reports
+"12 points, 6 repeated x values" and a y axis that "does NOT start at zero",
+which is exactly why that chart zigzags between the two regions.
+
 ## Run locally
 
     npm install

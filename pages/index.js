@@ -58,6 +58,57 @@ function inferTypes(columns, rows) {
   return t;
 }
 
+// ---------- read the rendered figure back ----------
+// Chart Doctor should critique the chart that is actually on screen, not our
+// guess of it. Plotly keeps its resolved state on the div (_fullLayout and
+// _fullData: final axis ranges, whether the legend is shown, trace names and
+// colours), so we read that back and turn it into a plain-text spec. The same
+// text is shown to the user under "What Chart Doctor saw".
+const fmt = (v) => (typeof v === "number" && Number.isFinite(v) ? (Math.abs(v) >= 1000 || Number.isInteger(v) ? Math.round(v).toLocaleString("en-US") : v.toFixed(2)) : String(v));
+
+function readBackChart(gd, ctx) {
+  const { rows, columns, types, title, xCol } = ctx;
+  const fl = gd && gd._fullLayout;
+  const fd = (gd && gd._fullData) || [];
+  if (!fl || !fd.length) return null;
+  const lines = [];
+  const kind = fd[0].type === "bar" ? "bar" : fd[0].mode && fd[0].mode.includes("lines") ? "line" : "scatter";
+
+  lines.push(`Title shown above the chart: "${title}"`);
+  lines.push(`Chart type: ${kind}${kind === "bar" && fd.length > 1 ? `, ${fl.barmode} bars` : ""}; ${fd.length} series.`);
+  lines.push(`X axis: "${fl.xaxis.title?.text || ""}", ${fl.xaxis.type} scale${fl.xaxis.type === "category" ? `, categories in this order: ${(fl.xaxis._categories || []).slice(0, 12).join(", ")}${(fl.xaxis._categories || []).length > 12 ? ", ..." : ""}` : `, range ${fmt(fl.xaxis.range[0])} to ${fmt(fl.xaxis.range[1])}`}.`);
+  const yr = fl.yaxis.range || [];
+  lines.push(`Y axis: "${fl.yaxis.title?.text || ""}", range ${fmt(yr[0])} to ${fmt(yr[1])}, ${yr[0] <= 0 ? "includes zero" : "does NOT start at zero"}.`);
+  lines.push(fl.showlegend
+    ? `Legend: shown, horizontal, above the plot, entries: ${fd.map((t) => t.name).join(", ")}.`
+    : `Legend: not shown (single series; the y-axis title and chart title name it).`);
+  lines.push(`Colours: ${fd.map((t) => `${t.name} = ${t.marker?.color}`).join(", ")}. Hover tooltips are on.`);
+
+  lines.push(`Per-series values as plotted:`);
+  const maxes = [];
+  for (const t of fd) {
+    const ys = Array.from(t.y || []);
+    const good = ys.filter((v) => typeof v === "number" && Number.isFinite(v));
+    const xs = Array.from(t.x || []);
+    const dupX = xs.length - new Set(xs.map(String)).size;
+    if (!good.length) { lines.push(`- ${t.name}: no plottable values (${ys.length} missing).`); continue; }
+    const mn = Math.min(...good), mx = Math.max(...good);
+    maxes.push(Math.abs(mx) || Math.abs(mn));
+    lines.push(`- ${t.name}: ${good.length} points, min ${fmt(mn)}, max ${fmt(mx)}, first ${fmt(good[0])}, last ${fmt(good[good.length - 1])}` +
+      `${ys.length - good.length ? `, ${ys.length - good.length} missing values not drawn` : ""}` +
+      `${dupX ? `, ${dupX} repeated x values (several rows land on the same x position)` : ""}.`);
+  }
+  if (maxes.length > 1) {
+    const ratio = Math.max(...maxes) / Math.max(Math.min(...maxes), 1e-9);
+    if (ratio >= 5) lines.push(`Scale note: the largest series peaks about ${Math.round(ratio)}x higher than the smallest on this shared y axis.`);
+  }
+
+  const gaps = columns.map((c) => [c, rows.filter((r) => r[c] === "" || r[c] == null || (types[c] === "number" && !Number.isFinite(asNumber(r[c])))).length]).filter(([, n]) => n);
+  lines.push(`Dataset: ${rows.length} rows; ${gaps.length ? `missing or unparseable cells: ${gaps.map(([c, n]) => `${c} ${n}`).join(", ")}` : "no missing cells"}.`);
+  lines.push(`Other columns not on the chart: ${columns.filter((c) => c !== xCol && !ctx.yCols.includes(c) && c !== ctx.colorBy).map((c) => `${c} (${types[c]})`).join(", ") || "none"}.`);
+  return lines.join("\n");
+}
+
 // Chart Doctor is told to answer in three sections; split them so they read as cards.
 function splitReply(text) {
   const re = /^\s*(Diagnosis|Why|Fix)\s*[-:–—]?\s*/im;
@@ -88,6 +139,7 @@ export default function Home() {
   const [model, setModel] = useState("");
   const [aiReply, setAiReply] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+  const [aiSpec, setAiSpec] = useState("");
   const [viewportTick, setViewportTick] = useState(0);
 
   // Redraw (not just resize) the chart when the window changes size, so the
@@ -125,7 +177,7 @@ export default function Home() {
       const second = texts.find((c, i) => i > 0 && new Set(parsed.rows.map((r) => r[c])).size <= 8);
       setColorBy(second || "");
       setChartType("bar");
-      setFileName(name); setLoadError(""); setAiReply(""); setShowAll(false);
+      setFileName(name); setLoadError(""); setAiReply(""); setAiSpec(""); setShowAll(false);
     } catch (e) { setLoadError(e.message || String(e)); }
   }, []);
 
@@ -141,7 +193,7 @@ export default function Home() {
   const onDrop = (e) => { e.preventDefault(); setDragging(false); readFile(e.dataTransfer.files?.[0]); };
   const clearAll = () => {
     setColumns([]); setRows([]); setTypes({}); setXCol(""); setYCols([]); setColorBy("");
-    setFileName(""); setLoadError(""); setAiReply(""); setShowAll(false);
+    setFileName(""); setLoadError(""); setAiReply(""); setAiSpec(""); setShowAll(false);
     if (fileRef.current) fileRef.current.value = "";
     if (chartRef.current && window.Plotly) window.Plotly.purge(chartRef.current);
   };
@@ -192,14 +244,17 @@ export default function Home() {
   const askChartDoctor = async () => {
     if (!hasData || aiBusy) return;
     setAiBusy(true); setAiReply("");
+    const spec = readBackChart(chartRef.current, { rows, columns, types, title: chartTitle, xCol, yCols, colorBy });
     const sample = rows.slice(0, 5).map((r) => columns.map((c) => `${c}=${r[c]}`).join(", ")).join("\n");
     const summary = [
       `Dataset: ${fileName || "sample"}, ${rows.length} rows, ${columns.length} columns.`,
       `Columns and types: ${columns.map((c) => `${c} (${types[c]})`).join("; ")}.`,
       `First rows:\n${sample}`,
-      `Chart I drew: ${chartType} chart, x = ${xCol}, y = ${yCols.join(" and ")}${colorBy ? `, one series per value of ${colorBy}` : ", no series split"}.`,
+      spec ? `RENDERED CHART (read back from the live figure, this is exactly what is on screen):\n${spec}`
+           : `Chart I drew: ${chartType} chart, x = ${xCol}, y = ${yCols.join(" and ")}${colorBy ? `, one series per value of ${colorBy}` : ", no series split"}.`,
       `Diagnose this chart and tell me the most useful fix.`,
-    ].join("\n");
+    ].join("\n\n");
+    setAiSpec(spec || "");
     try {
       const resp = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: summary }] }) });
       if (!resp.body) throw new Error(`Server returned ${resp.status}.`);
@@ -373,7 +428,7 @@ export default function Home() {
                 {aiBusy ? <><span className={styles.spinner} aria-hidden="true" /> Diagnosing…</> : "Diagnose this chart"}
               </button>
             </div>
-            <p className={styles.meta}>Sends the column names, types, the first five rows and your chosen encoding. The full file never leaves your browser.</p>
+            <p className={styles.meta}>Reads the chart back from the live figure (axis ranges, legend, colours, per-series values) and sends that with the column names and first five rows. The full file never leaves your browser.</p>
 
             {isError ? <div className={styles.error} role="alert">{aiReply}</div> : null}
             {!isError && aiReply && sections ? (
@@ -387,6 +442,12 @@ export default function Home() {
               </div>
             ) : null}
             {!isError && aiReply && !sections ? <div className={styles.reply}>{aiReply}</div> : null}
+            {aiSpec ? (
+              <details className={styles.seen}>
+                <summary>What Chart Doctor saw</summary>
+                <pre className={styles.seenBody}>{aiSpec}</pre>
+              </details>
+            ) : null}
           </section>
         ) : null}
       </main>
